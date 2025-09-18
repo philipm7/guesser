@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  guesser:
+    build: .
+    container_name: guesser-dev
+    volumes:
+      # Mount source code for live development
+      - .:/app
+      # Prevent overwriting the virtual environment
+      - /app/.venv
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    # Keep container running for interactive development
+    stdin_open: true
+    tty: true
+    command: python main.py
+
+  # Optional: Add database service later
+  # db:
+  #   image: postgres:15
+  #   environment:
+  #     POSTGRES_DB: guesser
+  #     POSTGRES_USER: dev
+  #     POSTGRES_PASSWORD: dev
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+# volumes:
+#   postgres_data:
