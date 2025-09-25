@@ -25,24 +25,31 @@ This project is designed for **zero-configuration deployment**. Everything works
 ```bash
 git clone <repo-url>
 cd Guesser
-docker-compose up --build
+docker-compose up --build -d
 ```
 
 No additional setup, no dependency management, no configuration needed.
 
 ### 🔄 Development Workflow:
 
-**Small changes** (code edits, UI tweaks):
 ```bash
-docker-compose up
-```
-*Uses existing containers - starts in 2-3 seconds*
+# When asked to "run the project":
+docker-compose up --build -d
 
-**Big changes** (dependencies, config, Dockerfiles):
-```bash
-docker-compose up --build
+# Check readiness:
+curl -s http://localhost:3001/api/health
+
+# Automatically open browser:
+open http://localhost:3000  # macOS
+# or xdg-open http://localhost:3000  # Linux
 ```
-*Rebuilds containers - takes 30-60 seconds but ensures fresh environment*
+
+**Why this workflow:**
+- ✅ **Terminal returns control** - can continue with next steps
+- ✅ **Programmatic health checks** - verify readiness
+- ✅ **Automatic browser opening** - seamless user experience
+- ✅ **Clean task completion** - clear start/finish workflow
+
 
 ### 📦 Adding Dependencies:
 ```bash
@@ -50,13 +57,14 @@ docker-compose up --build
 docker-compose run --rm --no-deps backend npm install <package>
 docker-compose run --rm --no-deps frontend npm install <package>
 
-# Then use "big changes" workflow:
-docker-compose up --build
+# Then rebuild and restart:
+docker-compose up --build -d
 ```
 
 ### 🌐 Access Points:
 - **Frontend (Price Guesser Game)**: http://localhost:3000
 - **Backend API**: http://localhost:3001
+- **Scraping API**: http://localhost:3001/api/scrape (POST)
 - **Health Check**: http://localhost:3001/api/health
 
 ### 🎯 What's Gitignored (Docker-Managed):
@@ -66,7 +74,13 @@ docker-compose up --build
 ### 🛠️ Architecture:
 
 **Backend:** Node.js + Express + Puppeteer with Chromium pre-installed in Alpine Linux container
+- **Core functionality:** Grailed marketplace scraper for fashion items
+- **Key dependencies:** Puppeteer for web scraping, wget for health checks
+- **API endpoints:** `/api/scrape` (POST), `/api/health` (GET), `/api/debug` (POST)
+
 **Frontend:** React app optimized for Docker with Fast Refresh disabled and polling enabled
+- **Purpose:** Price guessing game interface using scraped fashion data
+
 **Networking:** Custom Docker network with health checks ensuring proper startup sequencing
 **Security:** Non-root users in all containers
 
