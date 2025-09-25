@@ -26,15 +26,8 @@ Players are shown images and descriptions of real products and must guess their 
 
 ## Getting Started
 
-### Prerequisites
-- Docker (20.10+)
-- Docker Compose (2.0+)
-
-**No Node.js, npm, or other dependencies needed on your machine!**
-
-### Run the Application
+### Quick Start
 ```bash
-# Clone and start
 git clone <repo-url>
 cd Guesser
 docker-compose up --build
@@ -43,9 +36,13 @@ docker-compose up --build
 **Access the Application:**
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:3001
-- Health Check: http://localhost:3001/api/health
 
-For detailed team setup instructions, see [TEAM_SETUP.md](TEAM_SETUP.md).
+### 📋 Complete Development Guide
+
+**For all setup, development, and troubleshooting instructions, see:**
+[.cursor/rules/project-guidelines.mdc](.cursor/rules/project-guidelines.mdc)
+
+This file contains the definitive guide for Docker setup, dependency management, development workflow, and troubleshooting. It's also automatically loaded as context for AI assistance in Cursor.
 
 ## Current Status
 

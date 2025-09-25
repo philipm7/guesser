@@ -1,14 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Search,
-  Filter,
   Grid,
-  List,
-  Heart,
-  ExternalLink,
-  DollarSign,
   Tag,
-  User,
   MapPin,
   Gamepad2,
 } from "lucide-react";

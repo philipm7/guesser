@@ -1,21 +1,19 @@
-version: '3.8'
-
 services:
   backend:
     build: 
       context: ./backend
       dockerfile: Dockerfile
-    container_name: grailed-scraper-backend
+    container_name: guesser-backend
     ports:
       - "3001:3001"
     environment:
       - NODE_ENV=development
       - DOCKER_ENV=true
     networks:
-      - grailed-network
+      - guesser-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health", "||", "exit", "1"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
       timeout: 5s
       retries: 3
       start_period: 30s
@@ -24,21 +22,22 @@ services:
     build:
       context: ./frontend  
       dockerfile: Dockerfile
-    container_name: grailed-scraper-frontend
+    container_name: guesser-frontend
     ports:
       - "3000:3000"
     environment:
       - REACT_APP_API_URL=http://localhost:3001
       - CHOKIDAR_USEPOLLING=true
+      - FAST_REFRESH=false
     depends_on:
       backend:
         condition: service_healthy
     networks:
-      - grailed-network
+      - guesser-network
     restart: unless-stopped
     stdin_open: true
     tty: true
 
 networks:
-  grailed-network:
+  guesser-network:
     driver: bridge

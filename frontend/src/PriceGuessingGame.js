@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from "react";
 import {
   ArrowLeft,
-  Check,
-  X,
   Trophy,
   Target,
-  TrendingUp,
   RotateCcw,
 } from "lucide-react";
 

@@ -1,0 +1,75 @@
+---
+description: "Project guidance and development practices for the Guesser application"
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Guesser Project Guidelines
+
+> **📋 About This Document:** This is the Cursor project rule that automatically gets added as context to every AI prompt in this workspace in Cursor (YOU). It provides essential guidance about the project's architecture, development practices, and constraints that must be followed when generating or modifying code.
+
+## 🚀 Single-Command Docker Setup
+
+This project is designed for **zero-configuration deployment**. Everything works out of the box with a single command.
+
+### 🎯 Core Architecture:
+- **All services run in Docker containers** - no local Node.js needed
+- **All dependencies managed inside containers** - `npm install` happens in Docker
+- **No package-lock.json in git** - Docker generates dependencies fresh every time
+- **Servers bind to `0.0.0.0`** - proper container networking
+- **React optimized for Docker** - Fast Refresh disabled, polling enabled
+
+### 🚀 First-Time Setup:
+
+**Clone and run - that's it:**
+```bash
+git clone <repo-url>
+cd Guesser
+docker-compose up --build
+```
+
+No additional setup, no dependency management, no configuration needed.
+
+### 🔄 Development Workflow:
+
+**Small changes** (code edits, UI tweaks):
+```bash
+docker-compose up
+```
+*Uses existing containers - starts in 2-3 seconds*
+
+**Big changes** (dependencies, config, Dockerfiles):
+```bash
+docker-compose up --build
+```
+*Rebuilds containers - takes 30-60 seconds but ensures fresh environment*
+
+### 📦 Adding Dependencies:
+```bash
+# Add dependencies inside containers:
+docker-compose run --rm --no-deps backend npm install <package>
+docker-compose run --rm --no-deps frontend npm install <package>
+
+# Then use "big changes" workflow:
+docker-compose up --build
+```
+
+### 🌐 Access Points:
+- **Frontend (Price Guesser Game)**: http://localhost:3000
+- **Backend API**: http://localhost:3001
+- **Health Check**: http://localhost:3001/api/health
+
+### 🎯 What's Gitignored (Docker-Managed):
+- `node_modules/` - Generated inside containers
+- `package-lock.json` - Generated fresh on each build
+
+### 🛠️ Architecture:
+
+**Backend:** Node.js + Express + Puppeteer with Chromium pre-installed in Alpine Linux container
+**Frontend:** React app optimized for Docker with Fast Refresh disabled and polling enabled
+**Networking:** Custom Docker network with health checks ensuring proper startup sequencing
+**Security:** Non-root users in all containers
+
+### 🎯 Design Philosophy:
+
+**"Clone and Run"** - No local setup, no dependency hell, no configuration. Just Docker.

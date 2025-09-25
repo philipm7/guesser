@@ -22,7 +22,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --only=production && npm cache clean --force
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
