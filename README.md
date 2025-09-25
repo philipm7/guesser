@@ -8,8 +8,8 @@ Players are shown images and descriptions of real products and must guess their 
 
 **Team Members:**
 - Yannick Bierens
-- Phillip [Last Name]  
-- Rohan [Last Name]
+- Phillip Martin  
+- Rohan Krishnamurthy
 
 ## Key Features
 
