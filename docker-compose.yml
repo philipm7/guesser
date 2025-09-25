@@ -1,33 +1,44 @@
 version: '3.8'
 
 services:
-  guesser:
-    build: .
-    container_name: guesser-dev
-    volumes:
-      # Mount source code for live development
-      - .:/app
-      # Prevent overwriting the virtual environment
-      - /app/.venv
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: grailed-scraper-backend
+    ports:
+      - "3001:3001"
     environment:
-      - PYTHONPATH=/app
-      - PYTHONUNBUFFERED=1
-    # Keep container running for interactive development
+      - NODE_ENV=development
+      - DOCKER_ENV=true
+    networks:
+      - grailed-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health", "||", "exit", "1"]
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend  
+      dockerfile: Dockerfile
+    container_name: grailed-scraper-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:3001
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - grailed-network
+    restart: unless-stopped
     stdin_open: true
     tty: true
-    command: python main.py
 
-  # Optional: Add database service later
-  # db:
-  #   image: postgres:15
-  #   environment:
-  #     POSTGRES_DB: guesser
-  #     POSTGRES_USER: dev
-  #     POSTGRES_PASSWORD: dev
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   ports:
-  #     - "5432:5432"
-
-# volumes:
-#   postgres_data:
+networks:
+  grailed-network:
+    driver: bridge

@@ -1,4 +1,4 @@
-# Team Setup Guide - Guesser Project
+# Team Setup Guide - Grailed Scraper Project
 
 ## Prerequisites (One-time setup per teammate)
 
@@ -10,80 +10,77 @@
 ### 2. Verify Docker Installation
 ```bash
 docker --version
+docker-compose --version
 docker run hello-world
 ```
 
 ### 3. Clone the Repository
 ```bash
-git clone https://github.com/philipm7/guesser.git
-cd guesser
+git clone <repository-url>
+cd Guesser
 ```
 
 ## Daily Development Workflow
 
-### Option 1: Docker Compose (Recommended - Easiest)
+### Start the Application (Docker Only)
 ```bash
-# Start the development environment
-docker-compose up
+# Start both frontend and backend services
+docker-compose up --build
 
 # Run in background
-docker-compose up -d
+docker-compose up -d --build
 
-# Stop the environment
+# Stop all services
 docker-compose down
 
-# Rebuild when dependencies change
+# View logs
+docker-compose logs -f
+```
+
+### Access the Application
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:3001
+- **Health Check**: http://localhost:3001/api/health
+
+### Development Commands
+```bash
+# View logs for specific service
+docker-compose logs frontend
+docker-compose logs backend
+
+# Restart a specific service
+docker-compose restart backend
+
+# Access container shell for debugging
+docker-compose exec backend sh
+docker-compose exec frontend sh
+
+# Rebuild and restart after code changes
 docker-compose up --build
-```
-
-### Option 2: Direct Docker Commands
-```bash
-# Build the image (only needed when Dockerfile or requirements.txt changes)
-docker build -t guesser:dev .
-
-# Run the container
-docker run --rm guesser:dev
-
-# Run with volume mount for live development
-docker run --rm -v "$(pwd)":/app guesser:dev
-```
-
-### Development with Interactive Shell
-```bash
-# Using Docker Compose (recommended)
-docker-compose run --rm guesser bash
-
-# Using direct Docker
-docker run --rm -v "$(pwd)":/app -it guesser:dev bash
-
-# Inside container, you can:
-python main.py              # Run your code
-pip install new-package     # Install packages (remember to update requirements.txt)
-exit                        # Exit container
 ```
 
 ## Adding New Dependencies
 
-### 1. Update requirements.txt
-Add new packages to `requirements.txt`:
-```
-flask==2.3.3
-requests==2.31.0
-```
-
-### 2. Rebuild Image
+### Backend Dependencies (Node.js)
+1. **Edit `backend/package.json`** to add new dependency
+2. **Rebuild the backend container**:
 ```bash
-# Using Docker Compose (recommended)
-docker-compose up --build
-
-# Using direct Docker
-docker build -t guesser:dev .
+docker-compose build backend
+docker-compose up
 ```
 
-### 3. Commit and Push
+### Frontend Dependencies (React)
+1. **Edit `frontend/package.json`** to add new dependency  
+2. **Rebuild the frontend container**:
 ```bash
-git add requirements.txt
-git commit -m "Add flask and requests dependencies"
+docker-compose build frontend
+docker-compose up
+```
+
+### Commit Changes
+```bash
+git add backend/package.json frontend/package.json
+git commit -m "Add new dependencies"
 git push
 ```
 
@@ -91,17 +88,38 @@ git push
 
 ### Docker Issues
 - **"Cannot connect to Docker daemon"**: Start Docker Desktop
-- **"Image not found"**: Run `docker build -t guesser:dev .` first
+- **"Port already in use"**: Stop existing containers with `docker-compose down`
 - **Permission errors**: Make sure Docker Desktop has proper permissions
 
 ### Development Issues
-- **Code changes not reflected**: Use volume mount (`-v "$(pwd)":/app`)
-- **Dependencies missing**: Rebuild image after updating requirements.txt
-- **Container exits immediately**: Check your main.py for errors
+- **Code changes not reflected**: Containers use live code mounting
+- **Dependencies missing**: Rebuild containers after updating package.json
+- **Services won't start**: Check logs with `docker-compose logs <service>`
+- **Frontend won't load**: Wait 30-60 seconds for React dev server to start
+
+### Common Commands
+```bash
+# Clean up everything and start fresh
+docker-compose down --volumes --remove-orphans
+docker system prune -f
+docker-compose up --build
+
+# Check what's running
+docker-compose ps
+
+# Stop specific service
+docker-compose stop frontend
+```
 
 ## Best Practices
-1. Always rebuild image when requirements.txt changes
-2. Use volume mounts during development
-3. Commit requirements.txt changes immediately
-4. Test in container before pushing code
-5. Keep Dockerfile simple and well-commented
+1. Always use `docker-compose up --build` to ensure latest changes
+2. Commit package.json changes immediately after adding dependencies  
+3. Test in Docker containers before pushing code
+4. Use Docker-based development workflow only
+5. Never install Node.js or npm locally - everything runs in containers
+
+## Architecture
+- **Backend**: Node.js + Express + Puppeteer (web scraping)
+- **Frontend**: React application with modern UI
+- **Communication**: Backend API on :3001, Frontend on :3000
+- **Networking**: Docker internal network for service communication

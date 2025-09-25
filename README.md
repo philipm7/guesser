@@ -26,23 +26,24 @@ Players are shown images and descriptions of real products and must guess their 
 
 ## Getting Started
 
-### Local Development (no Docker)
+### Prerequisites
+- Docker (20.10+)
+- Docker Compose (2.0+)
+
+**No Node.js, npm, or other dependencies needed on your machine!**
+
+### Run the Application
 ```bash
-python -m venv .venv
-source .venv/bin/activate     # Windows: .venv\Scripts\activate
-pip install --upgrade pip -r requirements.txt
-python main.py
+# Clone and start
+git clone <repo-url>
+cd Guesser
+docker-compose up --build
 ```
 
-### Docker (Recommended for Team)
-```bash
-# Using Docker Compose (easiest)
-docker-compose up
-
-# Or build and run manually
-docker build -t guesser:dev .
-docker run --rm guesser:dev
-```
+**Access the Application:**
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:3001
+- Health Check: http://localhost:3001/api/health
 
 For detailed team setup instructions, see [TEAM_SETUP.md](TEAM_SETUP.md).
 

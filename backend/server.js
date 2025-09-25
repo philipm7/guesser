@@ -29,14 +29,21 @@ async function scrapeGrailed(
     );
 
     // Launch browser with stealth settings
+    const isDocker = process.env.NODE_ENV === 'production' || process.env.DOCKER_ENV;
     browser = await puppeteer.launch({
-      headless: false, // Set to true for production
+      headless: isDocker ? true : false, // Always headless in Docker
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-blink-features=AutomationControlled",
         "--disable-features=VizDisplayCompositor",
+        "--disable-dev-shm-usage", // Important for Docker
+        "--disable-gpu",
+        "--no-first-run",
+        "--no-zygote",
+        "--single-process", // Important for Docker
       ],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     });
 
     const page = await browser.newPage();
@@ -303,10 +310,12 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Grailed scraper server running on http://localhost:${PORT}`);
+// Start server - bind to all interfaces for Docker
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Grailed scraper server running on http://0.0.0.0:${PORT}`);
   console.log("Ready to scrape Grailed data!");
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Docker mode: ${process.env.DOCKER_ENV ? 'enabled' : 'disabled'}`);
 });
 
 // Graceful shutdown
