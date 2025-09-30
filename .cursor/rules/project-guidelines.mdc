@@ -33,6 +33,9 @@ No additional setup, no dependency management, no configuration needed.
 ### 🔄 Development Workflow:
 
 ```bash
+# First, ensure Docker daemon is running:
+docker info > /dev/null 2>&1 || { echo "Docker daemon not running. Please start Docker Desktop."; exit 1; }
+
 # When asked to "run the project":
 docker-compose up --build -d
 
@@ -45,6 +48,7 @@ open http://localhost:3000  # macOS
 ```
 
 **Why this workflow:**
+- ✅ **Docker daemon check first** - prevents cryptic errors if Docker daemon isn't running
 - ✅ **Terminal returns control** - can continue with next steps
 - ✅ **Programmatic health checks** - verify readiness
 - ✅ **Automatic browser opening** - seamless user experience
