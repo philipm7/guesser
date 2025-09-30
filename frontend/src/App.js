@@ -1,265 +1,113 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  Search,
-  Grid,
-  Tag,
-  MapPin,
   Gamepad2,
+  Settings,
+  Trophy,
+  Target,
+  DollarSign,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 import PriceGuessingGame from "./PriceGuessingGame";
+import ScraperApp from "./ScraperApp";
 
-const GrailedScraperApp = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [items, setItems] = useState([]);
+const App = () => {
+  const [currentPage, setCurrentPage] = useState("home"); // 'home', 'game', 'scraper'
+  const [gameData, setGameData] = useState(null);
+  const [betAmount, setBetAmount] = useState(100);
+  const [userBalance, setUserBalance] = useState(1000);
+  const [scrapingStatus, setScrapingStatus] = useState({
+    itemCount: 0,
+    lastScraped: null,
+    isDataFresh: false,
+    isScraping: false
+  });
   const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState("grid");
-  const [priceRange, setPriceRange] = useState({ min: "", max: "" });
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [currentPage, setCurrentPage] = useState("scraper"); // 'scraper' or 'game'
 
-  const categories = [
-    "all",
-    "T-Shirts",
-    "Hoodies",
-    "Jackets",
-    "Accessories",
-    "Pants",
-    "Shoes",
-  ];
+  // Load scraping status on startup
+  useEffect(() => {
+    loadStatus();
+    
+    // Check status every 30 seconds
+    const interval = setInterval(loadStatus, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
-  // Show game component
-  if (currentPage === "game") {
-    return (
-      <PriceGuessingGame
-        items={items}
-        onBackToScraper={() => setCurrentPage("scraper")}
-      />
-    );
-  }
-
-  // Real scraping function
-  const handleSearch = async () => {
-    setLoading(true);
-
+  const loadStatus = async () => {
     try {
-      const response = await fetch("http://localhost:3001/api/scrape", {
+      const response = await fetch("http://localhost:3001/api/status");
+      const data = await response.json();
+      if (data.success) {
+        setScrapingStatus(data);
+      }
+    } catch (error) {
+      console.error("Error loading status:", error);
+    }
+  };
+
+  const startGame = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("http://localhost:3001/api/random-item");
+      const data = await response.json();
+      
+      if (data.success && data.item) {
+        setGameData({
+          item: data.item,
+          betAmount,
+          userBalance,
+          onGameEnd: (result) => {
+            setUserBalance(prev => prev + result.balanceChange);
+            setCurrentPage("home");
+          }
+        });
+        setCurrentPage("game");
+      } else {
+        alert("No items available yet. Please wait for items to be loaded or try refreshing.");
+      }
+    } catch (error) {
+      console.error("Error starting game:", error);
+      alert("Error starting game. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshItems = async () => {
+    try {
+      const response = await fetch("http://localhost:3001/api/refresh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          searchQuery: searchQuery.trim(),
-          category: selectedCategory,
-          priceRange: {
-            min: priceRange.min || "",
-            max: priceRange.max || "",
-          },
-          limit: 20,
-        }),
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setItems(data.items);
-      } else {
-        console.error("Scraping failed:", data.error);
-        setItems([]);
+      
+      if (response.ok) {
+        setTimeout(loadStatus, 2000);
       }
     } catch (error) {
-      console.error("Network error:", error);
-      setItems([]);
+      console.error("Error refreshing items:", error);
     }
-
-    setLoading(false);
   };
 
-  const ItemCard = ({ item }) => (
-    <div
-      style={{
-        backgroundColor: "white",
-        overflow: "hidden",
-        cursor: "pointer",
-        transition: "all 0.3s ease",
-        borderRadius: "8px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = "0 10px 25px rgba(0,0,0,0.15)";
-        e.currentTarget.style.transform = "translateY(-2px)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
-        e.currentTarget.style.transform = "translateY(0)";
-      }}
-    >
-      {/* Image Container */}
-      <div
-        style={{
-          position: "relative",
-          aspectRatio: "1",
-          backgroundColor: "#f9fafb",
-          overflow: "hidden",
-        }}
-      >
-        <img
-          src={item.image}
-          alt={item.name}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            transition: "transform 0.5s ease",
-          }}
-          onError={(e) => {
-            e.target.src =
-              "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=400&fit=crop";
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.transform = "scale(1.05)";
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.transform = "scale(1)";
-          }}
-        />
+  // Show game component
+  if (currentPage === "game") {
+    return <PriceGuessingGame gameData={gameData} />;
+  }
 
-        {/* Time indicator */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: "12px",
-            left: "12px",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "12px",
-              color: "white",
-              backgroundColor: "rgba(0,0,0,0.6)",
-              padding: "4px 8px",
-              borderRadius: "4px",
-            }}
-          >
-            {Math.floor(Math.random() * 30) + 1} days ago
-          </span>
-        </div>
-      </div>
+  // Show scraper admin interface
+  if (currentPage === "scraper") {
+    return <ScraperApp onBack={() => setCurrentPage("home")} />;
+  }
 
-      {/* Content */}
-      <div style={{ padding: "16px" }}>
-        {/* Brand and Size */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "8px",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "14px",
-              fontWeight: "500",
-              color: "#111",
-            }}
-          >
-            {item.brand}
-          </span>
-          <span
-            style={{
-              fontSize: "14px",
-              color: "#6b7280",
-            }}
-          >
-            {item.size}
-          </span>
-        </div>
-
-        {/* Item Name */}
-        <h3
-          style={{
-            fontSize: "14px",
-            color: "#374151",
-            marginBottom: "12px",
-            lineHeight: "1.25",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-            margin: "0 0 12px 0",
-            minHeight: "35px",
-          }}
-        >
-          {item.name}
-        </h3>
-
-        {/* Price */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "8px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
-            <span
-              style={{
-                fontSize: "18px",
-                fontWeight: "bold",
-                color: "black",
-              }}
-            >
-              ${item.price}
-            </span>
-            {Math.random() > 0.7 && (
-              <span
-                style={{
-                  fontSize: "14px",
-                  color: "#9ca3af",
-                  textDecoration: "line-through",
-                }}
-              >
-                ${item.price + Math.floor(Math.random() * 100) + 50}
-              </span>
-            )}
-          </div>
-          {Math.random() > 0.7 && (
-            <span
-              style={{
-                fontSize: "12px",
-                color: "#dc2626",
-                fontWeight: "500",
-              }}
-            >
-              {Math.floor(Math.random() * 30) + 10}% off
-            </span>
-          )}
-        </div>
-
-        {/* Location */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            fontSize: "12px",
-            color: "#6b7280",
-            gap: "4px",
-          }}
-        >
-          <MapPin size={12} />
-          Located in {Math.random() > 0.5 ? "United States" : "Europe"}
-        </div>
-      </div>
-    </div>
-  );
-
+  // Main home page
   return (
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#f9fafb",
+        backgroundColor: "#0f0f23",
         fontFamily: "system-ui, -apple-system, sans-serif",
+        color: "white",
       }}
     >
       <style>
@@ -269,31 +117,14 @@ const GrailedScraperApp = () => {
             100% { transform: rotate(360deg); }
           }
           
-          @media (max-width: 768px) {
-            .search-grid {
-              grid-template-columns: 1fr !important;
-            }
-            .items-grid {
-              grid-template-columns: repeat(2, 1fr) !important;
-            }
+          @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.8); }
           }
           
-          @media (min-width: 769px) and (max-width: 1024px) {
-            .items-grid {
-              grid-template-columns: repeat(3, 1fr) !important;
-            }
-          }
-          
-          @media (min-width: 1025px) and (max-width: 1280px) {
-            .items-grid {
-              grid-template-columns: repeat(4, 1fr) !important;
-            }
-          }
-          
-          @media (min-width: 1281px) {
-            .items-grid {
-              grid-template-columns: repeat(5, 1fr) !important;
-            }
+          @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
           }
         `}
       </style>
@@ -301,417 +132,432 @@ const GrailedScraperApp = () => {
       {/* Header */}
       <div
         style={{
-          backgroundColor: "white",
-          borderBottom: "1px solid #e5e7eb",
-          position: "sticky",
-          top: 0,
-          zIndex: 10,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+          backgroundColor: "rgba(0, 0, 0, 0.3)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+          padding: "16px 32px",
+          backdropFilter: "blur(10px)",
         }}
       >
         <div
           style={{
-            maxWidth: "1280px",
+            maxWidth: "1200px",
             margin: "0 auto",
-            padding: "16px 32px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
           }}
         >
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <div
+              style={{
+                width: "40px",
+                height: "40px",
+                backgroundColor: "#3b82f6",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Target size={24} color="white" />
+            </div>
           <h1
             style={{
               fontSize: "24px",
               fontWeight: "bold",
-              color: "black",
               margin: 0,
+                background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
             }}
           >
-            Grailed Scraper
+              Price Guesser
           </h1>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {/* Balance Display */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "12px",
-            }}
-          >
-            {items.length > 0 && (
-              <span
-                style={{
-                  fontSize: "14px",
-                  color: "#6b7280",
-                }}
-              >
-                {items.length.toLocaleString()} items
+                gap: "8px",
+                backgroundColor: "rgba(34, 197, 94, 0.1)",
+                padding: "8px 16px",
+                borderRadius: "20px",
+                border: "1px solid rgba(34, 197, 94, 0.3)",
+              }}
+            >
+              <DollarSign size={16} color="#22c55e" />
+              <span style={{ fontSize: "16px", fontWeight: "600", color: "#22c55e" }}>
+                ${userBalance.toLocaleString()}
               </span>
-            )}
-            {items.length >= 5 && (
-              <button
-                onClick={() => setCurrentPage("game")}
+            </div>
+
+            {/* Items Status */}
+            <div
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: "8px",
-                  backgroundColor: "#10b981",
-                  color: "white",
-                  padding: "8px 16px",
-                  borderRadius: "8px",
-                  border: "none",
-                  cursor: "pointer",
                   fontSize: "14px",
-                  fontWeight: "500",
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = "#059669";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = "#10b981";
-                }}
-              >
-                <Gamepad2 size={16} />
-                Play Price Game
-              </button>
-            )}
+                color: scrapingStatus.isScraping ? "#f59e0b" : "#10b981",
+              }}
+            >
+              {scrapingStatus.isScraping ? (
+                <>
+                  <div
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      border: "2px solid #f59e0b",
+                      borderTop: "2px solid transparent",
+                      borderRadius: "50%",
+                      animation: "spin 1s linear infinite",
+                    }}
+                  ></div>
+                  <span>Loading items...</span>
+                </>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      backgroundColor: "#10b981",
+                      borderRadius: "50%",
+                    }}
+                  ></div>
+                  <span>{scrapingStatus.itemCount} items ready</span>
+                </>
+              )}
+            </div>
+
+            {/* Admin Button */}
             <button
-              onClick={() => setViewMode("grid")}
+              onClick={() => setCurrentPage("scraper")}
               style={{
                 padding: "8px",
                 borderRadius: "8px",
                 border: "none",
                 cursor: "pointer",
-                backgroundColor: viewMode === "grid" ? "black" : "transparent",
-                color: viewMode === "grid" ? "white" : "#6b7280",
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+                color: "#9ca3af",
                 transition: "all 0.2s",
               }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = "rgba(255, 255, 255, 0.2)";
+                e.target.style.color = "white";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                e.target.style.color = "#9ca3af";
+              }}
             >
-              <Grid size={20} />
+              <Settings size={20} />
             </button>
           </div>
         </div>
       </div>
 
+      {/* Main Content */}
       <div
         style={{
-          maxWidth: "1280px",
+          maxWidth: "800px",
           margin: "0 auto",
-          padding: "24px 32px",
+          padding: "64px 32px",
+          textAlign: "center",
         }}
       >
-        {/* Search and Filters */}
-        <div
-          style={{
-            backgroundColor: "white",
-            borderRadius: "8px",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-            padding: "24px",
-            marginBottom: "24px",
-          }}
-        >
+        {/* Hero Section */}
+        <div style={{ marginBottom: "64px" }}>
           <div
-            className="search-grid"
             style={{
-              display: "grid",
-              gridTemplateColumns: "2fr 1fr 1fr 1fr",
-              gap: "16px",
+              width: "120px",
+              height: "120px",
+              backgroundColor: "rgba(59, 130, 246, 0.1)",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 32px",
+              animation: "glow 2s ease-in-out infinite",
             }}
           >
-            {/* Search Input */}
-            <div style={{ position: "relative" }}>
-              <Search
-                style={{
-                  position: "absolute",
-                  left: "12px",
-                  top: "12px",
-                  color: "#9ca3af",
-                  zIndex: 1,
-                }}
-                size={20}
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search for items..."
-                style={{
-                  width: "100%",
-                  paddingLeft: "40px",
-                  paddingRight: "16px",
-                  paddingTop: "10px",
-                  paddingBottom: "10px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "16px",
-                  transition: "all 0.2s",
-                  outline: "none",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "black";
-                  e.target.style.boxShadow = "0 0 0 2px rgba(0,0,0,0.1)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#d1d5db";
-                  e.target.style.boxShadow = "none";
-                }}
-                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-              />
-            </div>
+            <Trophy size={48} color="#3b82f6" />
+          </div>
 
-            {/* Category Filter */}
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
+          <h2
+            style={{
+              fontSize: "48px",
+              fontWeight: "bold",
+              margin: "0 0 16px 0",
+              background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
+            Test Your Fashion Knowledge
+          </h2>
+          <p
+            style={{
+              fontSize: "20px",
+              color: "#9ca3af",
+              margin: "0 0 32px 0",
+              lineHeight: "1.6",
+            }}
+          >
+            Guess the price of luxury fashion items from Grailed and win real money!
+          </p>
+        </div>
+
+        {/* Betting Interface */}
+        <div
+          style={{
+            backgroundColor: "rgba(255, 255, 255, 0.05)",
+            borderRadius: "16px",
+            padding: "32px",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            backdropFilter: "blur(10px)",
+            marginBottom: "32px",
+          }}
+        >
+          <h3
+            style={{
+              fontSize: "24px",
+              fontWeight: "600",
+              margin: "0 0 24px 0",
+              color: "white",
+            }}
+          >
+            Place Your Bet
+          </h3>
+
+          <div style={{ marginBottom: "24px" }}>
+            <label
               style={{
-                width: "100%",
-                padding: "10px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: "8px",
+                display: "block",
                 fontSize: "16px",
-                backgroundColor: "white",
-                transition: "all 0.2s",
-                outline: "none",
-                boxSizing: "border-box",
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "black";
-                e.target.style.boxShadow = "0 0 0 2px rgba(0,0,0,0.1)";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "#d1d5db";
-                e.target.style.boxShadow = "none";
+                color: "#9ca3af",
+                marginBottom: "12px",
+                textAlign: "left",
               }}
             >
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category === "all" ? "All Categories" : category}
-                </option>
-              ))}
-            </select>
-
-            {/* Price Range */}
-            <div style={{ display: "flex", gap: "8px" }}>
-              <input
-                type="number"
-                value={priceRange.min}
-                onChange={(e) =>
-                  setPriceRange((prev) => ({ ...prev, min: e.target.value }))
-                }
-                placeholder="Min"
+              Bet Amount
+            </label>
+            <div style={{ position: "relative" }}>
+              <DollarSign
+                size={20}
                 style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                  outline: "none",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "black";
-                  e.target.style.boxShadow = "0 0 0 2px rgba(0,0,0,0.1)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#d1d5db";
-                  e.target.style.boxShadow = "none";
+                  position: "absolute",
+                  left: "16px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "#6b7280",
                 }}
               />
               <input
                 type="number"
-                value={priceRange.max}
-                onChange={(e) =>
-                  setPriceRange((prev) => ({ ...prev, max: e.target.value }))
-                }
-                placeholder="Max"
+                value={betAmount}
+                onChange={(e) => setBetAmount(Math.max(1, parseInt(e.target.value) || 1))}
+                min="1"
+                max={userBalance}
                 style={{
                   width: "100%",
-                  padding: "10px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "14px",
+                  paddingLeft: "48px",
+                  paddingRight: "16px",
+                  paddingTop: "16px",
+                  paddingBottom: "16px",
+                  backgroundColor: "rgba(0, 0, 0, 0.3)",
+                  border: "2px solid rgba(255, 255, 255, 0.1)",
+                  borderRadius: "12px",
+                  fontSize: "18px",
+                  color: "white",
                   outline: "none",
                   boxSizing: "border-box",
                 }}
                 onFocus={(e) => {
-                  e.target.style.borderColor = "black";
-                  e.target.style.boxShadow = "0 0 0 2px rgba(0,0,0,0.1)";
+                  e.target.style.borderColor = "#3b82f6";
                 }}
                 onBlur={(e) => {
-                  e.target.style.borderColor = "#d1d5db";
-                  e.target.style.boxShadow = "none";
+                  e.target.style.borderColor = "rgba(255, 255, 255, 0.1)";
                 }}
               />
             </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginTop: "8px",
+                fontSize: "14px",
+                color: "#6b7280",
+              }}
+            >
+              <span>Min: $1</span>
+              <span>Max: ${userBalance.toLocaleString()}</span>
+            </div>
+          </div>
 
-            {/* Search Button */}
+          {/* Quick Bet Buttons */}
+          <div
+                style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gap: "12px",
+              marginBottom: "24px",
+            }}
+          >
+            {[25, 50, 100, 250].map((amount) => (
+              <button
+                key={amount}
+                onClick={() => setBetAmount(Math.min(amount, userBalance))}
+                disabled={amount > userBalance}
+                style={{
+                  padding: "12px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  backgroundColor: amount === betAmount ? "#3b82f6" : "rgba(255, 255, 255, 0.05)",
+                  color: amount > userBalance ? "#6b7280" : "white",
+                  cursor: amount > userBalance ? "not-allowed" : "pointer",
+                  fontSize: "16px",
+                  fontWeight: "500",
+                  transition: "all 0.2s",
+                  opacity: amount > userBalance ? 0.5 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (amount <= userBalance && amount !== betAmount) {
+                    e.target.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (amount <= userBalance && amount !== betAmount) {
+                    e.target.style.backgroundColor = "rgba(255, 255, 255, 0.05)";
+                  }
+                }}
+              >
+                ${amount}
+              </button>
+            ))}
+            </div>
+
+          {/* Play Button */}
             <button
-              onClick={handleSearch}
-              disabled={loading}
+            onClick={startGame}
+            disabled={loading || scrapingStatus.itemCount === 0 || betAmount > userBalance}
               style={{
                 width: "100%",
-                backgroundColor: loading ? "#6b7280" : "black",
+              padding: "16px 32px",
+              backgroundColor: 
+                loading || scrapingStatus.itemCount === 0 || betAmount > userBalance
+                  ? "#374151"
+                  : "linear-gradient(135deg, #3b82f6, #8b5cf6)",
                 color: "white",
-                padding: "10px 16px",
-                borderRadius: "8px",
                 border: "none",
-                fontWeight: "500",
-                cursor: loading ? "not-allowed" : "pointer",
+              borderRadius: "12px",
+              fontSize: "18px",
+              fontWeight: "600",
+              cursor: 
+                loading || scrapingStatus.itemCount === 0 || betAmount > userBalance
+                  ? "not-allowed"
+                  : "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: "8px",
-                transition: "background-color 0.2s",
-                fontSize: "16px",
+              gap: "12px",
+              transition: "all 0.2s",
+              opacity: 
+                loading || scrapingStatus.itemCount === 0 || betAmount > userBalance
+                  ? 0.5
+                  : 1,
               }}
               onMouseEnter={(e) => {
-                if (!loading) e.target.style.backgroundColor = "#374151";
+              if (!loading && scrapingStatus.itemCount > 0 && betAmount <= userBalance) {
+                e.target.style.transform = "translateY(-2px)";
+                e.target.style.boxShadow = "0 10px 25px rgba(59, 130, 246, 0.3)";
+              }
               }}
               onMouseLeave={(e) => {
-                if (!loading) e.target.style.backgroundColor = "black";
+              if (!loading && scrapingStatus.itemCount > 0 && betAmount <= userBalance) {
+                e.target.style.transform = "translateY(0)";
+                e.target.style.boxShadow = "none";
+              }
               }}
             >
               {loading ? (
+              <>
                 <div
                   style={{
                     width: "20px",
                     height: "20px",
-                    border: "2px solid #f3f4f6",
+                    border: "2px solid rgba(255, 255, 255, 0.3)",
                     borderTop: "2px solid white",
                     borderRadius: "50%",
                     animation: "spin 1s linear infinite",
                   }}
                 ></div>
+                Loading Item...
+              </>
+            ) : scrapingStatus.itemCount === 0 ? (
+              <>
+                <AlertCircle size={20} />
+                No Items Available
+              </>
               ) : (
                 <>
-                  <Search size={16} />
-                  Search
+                <Gamepad2 size={20} />
+                Play Game - Bet ${betAmount}
                 </>
               )}
             </button>
+        </div>
+
+        {/* Status and Info */}
+          <div
+            style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "32px",
+            fontSize: "14px",
+                color: "#6b7280",
+              }}
+            >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Target size={16} />
+            <span>Guess within 5% for max payout</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Trophy size={16} />
+            <span>Win up to 10x your bet</span>
           </div>
         </div>
 
-        {/* Loading State */}
-        {loading && (
-          <div
+        {/* Refresh Button */}
+        {scrapingStatus.itemCount === 0 && (
+          <button
+            onClick={refreshItems}
+            disabled={scrapingStatus.isScraping}
             style={{
-              textAlign: "center",
-              paddingTop: "48px",
-              paddingBottom: "48px",
+              marginTop: "24px",
+              padding: "12px 24px",
+              backgroundColor: "transparent",
+              color: "#3b82f6",
+              border: "1px solid #3b82f6",
+              borderRadius: "8px",
+              cursor: scrapingStatus.isScraping ? "not-allowed" : "pointer",
+              fontSize: "16px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              opacity: scrapingStatus.isScraping ? 0.5 : 1,
             }}
           >
-            <div
-              style={{
-                width: "48px",
-                height: "48px",
-                border: "2px solid #f3f4f6",
-                borderTop: "2px solid black",
-                borderRadius: "50%",
-                animation: "spin 1s linear infinite",
-                margin: "0 auto 16px",
-              }}
-            ></div>
-            <p
-              style={{
-                color: "#6b7280",
-                fontSize: "16px",
-                margin: 0,
-              }}
-            >
-              Scraping Grailed items...
-            </p>
-          </div>
-        )}
-
-        {/* Items Grid */}
-        {!loading && items.length > 0 && (
-          <div
-            className="items-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(5, 1fr)",
-              gap: "16px",
-            }}
-          >
-            {items.map((item) => (
-              <ItemCard key={item.id} item={item} />
-            ))}
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!loading && items.length === 0 && (
-          <div
-            style={{
-              textAlign: "center",
-              paddingTop: "64px",
-              paddingBottom: "64px",
-            }}
-          >
-            <div
-              style={{
-                width: "64px",
-                height: "64px",
-                backgroundColor: "#f3f4f6",
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                margin: "0 auto 16px",
-              }}
-            >
-              <Tag size={32} color="#9ca3af" />
-            </div>
-            <h3
-              style={{
-                fontSize: "20px",
-                fontWeight: "500",
-                color: "black",
-                marginBottom: "8px",
-                margin: "0 0 8px 0",
-              }}
-            >
-              No items found
-            </h3>
-            <p
-              style={{
-                color: "#6b7280",
-                marginBottom: "24px",
-                fontSize: "16px",
-                margin: "0 0 24px 0",
-              }}
-            >
-              Try searching for brands like "Supreme", "Nike", or "Prada"
-            </p>
-            <button
-              onClick={() => {
-                setSearchQuery("Prada");
-                setTimeout(handleSearch, 100);
-              }}
-              style={{
-                backgroundColor: "black",
-                color: "white",
-                padding: "8px 24px",
-                borderRadius: "8px",
-                border: "none",
-                cursor: "pointer",
-                transition: "background-color 0.2s",
-                fontSize: "16px",
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = "#374151";
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = "black";
-              }}
-            >
-              Try searching "Prada"
+            <RefreshCw size={16} />
+            Refresh Items
             </button>
-          </div>
         )}
       </div>
     </div>
   );
 };
 
-export default GrailedScraperApp;
+export default App;

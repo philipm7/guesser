@@ -2,6 +2,8 @@
 const express = require("express");
 const puppeteer = require("puppeteer");
 const cors = require("cors");
+const dataStorage = require('./dataStorage');
+const backgroundScraper = require('./backgroundScraper');
 
 const app = express();
 const PORT = 3001;
@@ -31,7 +33,7 @@ async function scrapeGrailed(
     // Launch browser with stealth settings
     const isDocker = process.env.NODE_ENV === 'production' || process.env.DOCKER_ENV;
     browser = await puppeteer.launch({
-      headless: isDocker ? true : false, // Always headless in Docker
+      headless: isDocker ? "new" : false, // Use new headless mode in Docker
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -42,8 +44,12 @@ async function scrapeGrailed(
         "--no-first-run",
         "--no-zygote",
         "--single-process", // Important for Docker
+        "--disable-web-security",
+        "--disable-features=TranslateUI",
+        "--disable-ipc-flooding-protection",
       ],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      executablePath: isDocker ? "/usr/bin/chromium-browser" : undefined,
+      timeout: 60000, // 60 second timeout
     });
 
     const page = await browser.newPage();
@@ -305,6 +311,101 @@ app.post("/api/debug", async (req, res) => {
   }
 });
 
+// Get stored items (for game)
+app.get("/api/items", (req, res) => {
+  try {
+    const items = dataStorage.getItems();
+    const status = dataStorage.getStatus();
+    
+    res.json({
+      success: true,
+      items,
+      count: items.length,
+      status
+    });
+  } catch (error) {
+    console.error("Error getting items:", error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      items: []
+    });
+  }
+});
+
+// Get a random item for the game
+app.get("/api/random-item", (req, res) => {
+  try {
+    const item = dataStorage.getRandomItem();
+    const status = dataStorage.getStatus();
+    
+    if (!item) {
+      res.json({
+        success: false,
+        message: "No items available",
+        status
+      });
+      return;
+    }
+    
+    res.json({
+      success: true,
+      item,
+      status
+    });
+  } catch (error) {
+    console.error("Error getting random item:", error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get scraping status
+app.get("/api/status", (req, res) => {
+  try {
+    const status = dataStorage.getStatus();
+    res.json({
+      success: true,
+      ...status
+    });
+  } catch (error) {
+    console.error("Error getting status:", error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Trigger manual refresh
+app.post("/api/refresh", async (req, res) => {
+  try {
+    if (dataStorage.isScraping) {
+      res.json({
+        success: false,
+        message: "Scraping already in progress"
+      });
+      return;
+    }
+
+    // Start background scraping
+    backgroundScraper.scrapeNow();
+    
+    res.json({
+      success: true,
+      message: "Refresh started"
+    });
+  } catch (error) {
+    console.error("Error starting refresh:", error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
@@ -316,10 +417,14 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log("Ready to scrape Grailed data!");
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`Docker mode: ${process.env.DOCKER_ENV ? 'enabled' : 'disabled'}`);
+  
+  // Start background scraping
+  backgroundScraper.start();
 });
 
 // Graceful shutdown
 process.on("SIGINT", () => {
   console.log("\nShutting down server...");
+  backgroundScraper.stop();
   process.exit(0);
 });
