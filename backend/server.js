@@ -29,19 +29,14 @@ async function scrapeGrailed(
     );
 
     // Launch browser with stealth settings
-    const isDocker = process.env.NODE_ENV === 'production' || process.env.DOCKER_ENV;
     browser = await puppeteer.launch({
-      headless: isDocker ? true : false, // Always headless in Docker
+      headless: true, // Always headless in Docker
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-blink-features=AutomationControlled",
         "--disable-features=VizDisplayCompositor",
         "--disable-dev-shm-usage", // Important for Docker
-        "--disable-gpu",
-        "--no-first-run",
-        "--no-zygote",
-        "--single-process", // Important for Docker
       ],
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     });
@@ -278,7 +273,15 @@ app.post("/api/debug", async (req, res) => {
   let browser;
 
   try {
-    browser = await puppeteer.launch({ headless: false });
+    browser = await puppeteer.launch({ 
+      headless: true, 
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+      ]
+    });
     const page = await browser.newPage();
 
     await page.setUserAgent(
