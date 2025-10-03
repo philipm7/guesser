@@ -60,10 +60,10 @@ async function scrapeGrailed(
         Hoodies: "tops.sweatshirts_hoodies",
         Jackets: "outerwear.light_jackets",
         Accessories:
-          "accessories.belts%2Caccessories.glasses%2Caccessories.jewelry_watches",
-        Pants: "bottoms.casual_pants%2Cbottoms.denim%2Cbottoms.shorts",
+          "accessories.belts,accessories.glasses,accessories.jewelry_watches",
+        Pants: "bottoms.casual_pants,bottoms.denim,bottoms.shorts",
         Shoes:
-          "footwear.hitop_sneakers%2Cfootwear.lowtop_sneakers%2Cfootwear.boots",
+          "footwear.hitop_sneakers,footwear.lowtop_sneakers,footwear.boots",
       };
       if (categoryMap[category]) {
         params.append("category", categoryMap[category]);
@@ -79,7 +79,14 @@ async function scrapeGrailed(
       searchUrl += "?" + params.toString();
     }
 
-    console.log("Scraping URL:", searchUrl);
+    console.log("🔗 SCRAPING URL:", searchUrl);
+    console.log("📊 Search Parameters:", {
+      query: searchQuery,
+      category: category,
+      minPrice: minPrice,
+      maxPrice: maxPrice,
+      limit: limit
+    });
 
     // Navigate to search page
     await page.goto(searchUrl, { waitUntil: "networkidle2", timeout: 30000 });
@@ -222,7 +229,7 @@ async function scrapeGrailed(
     }, limit);
 
     console.log(`Scraped ${items.length} items`);
-    return items;
+    return { items, searchUrl };
   } catch (error) {
     console.error("Scraping error:", error.message);
     throw error;
@@ -238,14 +245,15 @@ app.post("/api/scrape", async (req, res) => {
   try {
     const { searchQuery, category, priceRange, limit = 20 } = req.body;
 
-    console.log("Scrape request:", {
+    console.log("🚀 NEW SCRAPE REQUEST:", {
       searchQuery,
       category,
       priceRange,
       limit,
     });
+    console.log("⏰ Request timestamp:", new Date().toISOString());
 
-    const items = await scrapeGrailed(
+    const result = await scrapeGrailed(
       searchQuery,
       category,
       priceRange?.min,
@@ -253,10 +261,17 @@ app.post("/api/scrape", async (req, res) => {
       limit
     );
 
+    console.log("✅ SCRAPE COMPLETED:", {
+      itemsFound: result.items.length,
+      scrapedUrl: result.searchUrl,
+      duration: "completed"
+    });
+
     res.json({
       success: true,
-      items,
-      count: items.length,
+      items: result.items,
+      count: result.items.length,
+      scrapedUrl: result.searchUrl,
     });
   } catch (error) {
     console.error("API Error:", error.message);

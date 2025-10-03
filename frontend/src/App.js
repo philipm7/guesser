@@ -16,6 +16,7 @@ const GrailedScraperApp = () => {
   const [priceRange, setPriceRange] = useState({ min: "", max: "" });
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [currentPage, setCurrentPage] = useState("scraper"); // 'scraper' or 'game'
+  const [scrapedUrl, setScrapedUrl] = useState("");
 
   const categories = [
     "all",
@@ -62,9 +63,11 @@ const GrailedScraperApp = () => {
 
       if (data.success) {
         setItems(data.items);
+        setScrapedUrl(data.scrapedUrl || "");
       } else {
         console.error("Scraping failed:", data.error);
         setItems([]);
+        setScrapedUrl("");
       }
     } catch (error) {
       console.error("Network error:", error);
@@ -590,6 +593,44 @@ const GrailedScraperApp = () => {
             </button>
           </div>
         </div>
+
+        {/* Scraped URL Display */}
+        {scrapedUrl && (
+          <div
+            style={{
+              backgroundColor: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+              padding: "16px",
+              marginBottom: "24px",
+              fontFamily: "monospace",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "14px",
+                fontWeight: "500",
+                color: "#374151",
+                marginBottom: "8px",
+              }}
+            >
+              🔗 Scraped URL:
+            </div>
+            <div
+              style={{
+                fontSize: "12px",
+                color: "#6b7280",
+                wordBreak: "break-all",
+                backgroundColor: "white",
+                padding: "8px",
+                borderRadius: "4px",
+                border: "1px solid #e5e7eb",
+              }}
+            >
+              {scrapedUrl}
+            </div>
+          </div>
+        )}
 
         {/* Loading State */}
         {loading && (
