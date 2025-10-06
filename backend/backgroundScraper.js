@@ -5,18 +5,14 @@ const SCRAPE_INTERVAL = 30 * 60 * 1000; // 30 minutes
 let intervalId;
 let isRunning = false;
 
-// Default search queries for background scraping
+// Simple search queries for background scraping (no filters, just like manual)
 const defaultSearchQueries = [
-    { searchQuery: "Supreme", category: "all", priceRange: { min: "", max: "" }, limit: 10 },
-    { searchQuery: "Nike", category: "Shoes", priceRange: { min: "", max: "" }, limit: 5 },
-    { searchQuery: "Adidas", category: "Shoes", priceRange: { min: "", max: "" }, limit: 5 },
-    { searchQuery: "Nike", category: "T-Shirts", priceRange: { min: "", max: "" }, limit: 5 },
-    { searchQuery: "Supreme", category: "Hoodies", priceRange: { min: "", max: "" }, limit: 5 },
-    { searchQuery: "Off-White", category: "all", priceRange: { min: "", max: "" }, limit: 5 },
-    { searchQuery: "Stone Island", category: "Jackets", priceRange: { min: "", max: "" }, limit: 5 },
-    { searchQuery: "Prada", category: "Accessories", priceRange: { min: "", max: "" }, limit: 5 },
-    { searchQuery: "Gucci", category: "all", priceRange: { min: "", max: "" }, limit: 5 },
-    { searchQuery: "Balenciaga", category: "all", priceRange: { min: "", max: "" }, limit: 5 },
+    "Supreme",
+    "Nike", 
+    "Adidas",
+    "Balenciaga",
+    "Loewe",
+    "Prada"
 ];
 
 class BackgroundScraper {
@@ -61,7 +57,6 @@ class BackgroundScraper {
         console.log('🛑 Background scraper stopped');
     }
 
-
     // Perform scraping now
     async scrapeNow() {
         if (dataStorage.isScraping()) {
@@ -74,38 +69,42 @@ class BackgroundScraper {
 
         try {
             const allItems = [];
+            const totalQueries = defaultSearchQueries.length;
 
             // Try scraping from multiple search queries to get variety
-            for (let i = 0; i < Math.min(6, defaultSearchQueries.length); i++) {
-                const query = defaultSearchQueries[i];
-                console.log(`🎯 Scraping for: ${query.searchQuery} (${query.category})`);
+            for (let i = 0; i < totalQueries; i++) {
+                const searchQuery = defaultSearchQueries[i];
+                console.log(`🎯 Scraping for: ${searchQuery}`);
+                
+                // Update progress: current query
+                dataStorage.updateScrapingProgress(i + 1, totalQueries, searchQuery);
                 
                 try {
                     const result = await scrapeGrailed(
-                        query.searchQuery,
-                        query.category,
-                        query.priceRange.min,
-                        query.priceRange.max,
-                        query.limit
+                        searchQuery,
+                        "all", // No category filter
+                        "", // No min price
+                        "", // No max price
+                        10 // Get 10 items per query
                     );
                     allItems.push(...result.items);
-                    console.log(`✅ Successfully scraped ${result.items.length} items for ${query.searchQuery}`);
+                    console.log(`✅ Successfully scraped ${result.items.length} items for ${searchQuery}`);
                 } catch (error) {
-                    console.log(`❌ Failed to scrape ${query.searchQuery}:`, error.message);
+                    console.log(`❌ Failed to scrape ${searchQuery}:`, error.message);
                 }
                 
                 // Add delay between requests to be respectful
-                await this.delay(3000);
+                await this.delay(1000);
             }
 
-      // Update items with new data (only real items)
-      if (allItems.length > 0) {
-        dataStorage.updateItems(allItems);
-        console.log(`🎉 Background scrape complete: ${allItems.length} real items collected`);
-      } else {
-        console.log('❌ No items scraped successfully');
-      }
-            
+            // Update items with new data (only real items)
+            if (allItems.length > 0) {
+                dataStorage.updateItems(allItems);
+                console.log(`🎉 Background scrape complete: ${allItems.length} real items collected`);
+            } else {
+                console.log('❌ No items scraped successfully');
+            }
+                
         } catch (error) {
             console.error('💥 Background scraping error:', error.message);
         } finally {

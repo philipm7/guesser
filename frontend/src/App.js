@@ -13,6 +13,12 @@ const App = () => {
     lastScraped: null,
     isDataFresh: false,
     isScraping: false,
+    progress: {
+      current: 0,
+      total: 0,
+      currentQuery: '',
+      startTime: null
+    }
   });
   const [initialLoading, setInitialLoading] = useState(true);
   const [loadingGame, setLoadingGame] = useState(false);
@@ -35,10 +41,26 @@ const App = () => {
 
     loadStatus();
 
-    // Update status every 30 seconds
-    const interval = setInterval(loadStatus, 30000);
+    // Update status every 30 seconds, or every 2 seconds if scraping
+    const getIntervalTime = () => {
+      return scrapingStatus.isScraping ? 2000 : 30000;
+    };
+
+    let interval = setInterval(loadStatus, getIntervalTime());
+    
+    // Clear and restart interval when scraping status changes
+    const restartInterval = () => {
+      clearInterval(interval);
+      interval = setInterval(loadStatus, getIntervalTime());
+    };
+
+    // Restart interval when scraping status changes
+    if (scrapingStatus.isScraping) {
+      restartInterval();
+    }
+
     return () => clearInterval(interval);
-  }, []);
+  }, [scrapingStatus.isScraping]);
 
   const handlePlayGame = async () => {
     if (betAmount <= 0 || betAmount > userBalance) return;
@@ -235,7 +257,14 @@ const App = () => {
               }}
             />
             {scrapingStatus.isScraping ? (
-              "Scraping items..."
+              <div style={{ textAlign: "center" }}>
+                <div>Scraping items...</div>
+                {scrapingStatus.progress && scrapingStatus.progress.total > 0 && (
+                  <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>
+                    {scrapingStatus.progress.currentQuery} ({scrapingStatus.progress.current}/{scrapingStatus.progress.total})
+                  </div>
+                )}
+              </div>
             ) : scrapingStatus.isDataFresh ? (
               `${scrapingStatus.itemCount} items ready`
             ) : (

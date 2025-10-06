@@ -21,12 +21,18 @@ async function scrapeGrailed(
     // Launch browser with stealth settings
     browser = await puppeteer.launch({
       headless: true, // Always headless in Docker
+      protocolTimeout: 60000, // Increase timeout for Docker
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-blink-features=AutomationControlled",
         "--disable-features=VizDisplayCompositor",
         "--disable-dev-shm-usage", // Important for Docker
+        "--disable-gpu",
+        "--disable-web-security",
+        "--disable-extensions",
+        "--no-first-run",
+        "--disable-default-apps",
       ],
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     });
@@ -81,11 +87,11 @@ async function scrapeGrailed(
     await page.goto(searchUrl, { waitUntil: "networkidle2", timeout: 30000 });
 
     // Wait for page to load and scroll to trigger lazy loading
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(2000);
     await page.evaluate(() => {
       window.scrollTo(0, document.body.scrollHeight / 3);
     });
-    await delay(2000);
+    await delay(1000);
 
     // Extract item data
     const items = await page.evaluate((limit) => {

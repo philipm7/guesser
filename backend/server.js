@@ -66,6 +66,7 @@ app.post("/api/debug", async (req, res) => {
   try {
     browser = await puppeteer.launch({ 
       headless: true, 
+      protocolTimeout: 60000, // Increase timeout for Docker
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       args: [
         "--no-sandbox",
@@ -154,12 +155,33 @@ app.get("/api/random-item", (req, res) => {
 app.get("/api/status", (req, res) => {
   try {
     const status = dataStorage.getStatus();
+    const progress = dataStorage.getScrapingProgress();
     res.json({
       success: true,
-      ...status
+      ...status,
+      progress
     });
   } catch (error) {
     console.error("Error getting status:", error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get scraping progress (dedicated endpoint for polling)
+app.get("/api/scraping-progress", (req, res) => {
+  try {
+    const progress = dataStorage.getScrapingProgress();
+    const status = dataStorage.getStatus();
+    res.json({
+      success: true,
+      progress,
+      isScraping: status.isScraping
+    });
+  } catch (error) {
+    console.error("Error getting scraping progress:", error.message);
     res.status(500).json({
       success: false,
       error: error.message

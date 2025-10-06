@@ -7,6 +7,12 @@ const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 let items = [];
 let lastScraped = null;
 let isScraping = false;
+let scrapingProgress = {
+    current: 0,
+    total: 0,
+    currentQuery: '',
+    startTime: null
+};
 
 // Load items from file on startup
 const loadItems = () => {
@@ -73,6 +79,33 @@ const getStatus = () => {
 
 const setScrapingStatus = (status) => {
     isScraping = status;
+    if (status) {
+        // Reset progress when starting scraping
+        scrapingProgress = {
+            current: 0,
+            total: 0,
+            currentQuery: '',
+            startTime: new Date().toISOString()
+        };
+    } else {
+        // Clear progress when finished
+        scrapingProgress = {
+            current: 0,
+            total: 0,
+            currentQuery: '',
+            startTime: null
+        };
+    }
+};
+
+const updateScrapingProgress = (current, total, currentQuery) => {
+    scrapingProgress.current = current;
+    scrapingProgress.total = total;
+    scrapingProgress.currentQuery = currentQuery;
+};
+
+const getScrapingProgress = () => {
+    return { ...scrapingProgress };
 };
 
 // Load data on module initialization
@@ -85,5 +118,7 @@ module.exports = {
     updateItems,
     getStatus,
     setScrapingStatus,
+    updateScrapingProgress,
+    getScrapingProgress,
     isScraping: () => isScraping // Export function for external check
 };
