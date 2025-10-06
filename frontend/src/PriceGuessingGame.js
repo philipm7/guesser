@@ -6,36 +6,73 @@ import {
   RotateCcw,
 } from "lucide-react";
 
-const PriceGuessingGame = ({ items, onBackToScraper }) => {
-  const [gameItems, setGameItems] = useState([]);
-  const [currentItemIndex, setCurrentItemIndex] = useState(0);
+const PriceGuessingGame = ({ items, onBackToScraper, gameData }) => {
+  // New betting mode state
+  const [currentItem, setCurrentItem] = useState(null);
   const [userGuess, setUserGuess] = useState("");
   const [gameState, setGameState] = useState("playing"); // 'playing', 'revealed', 'finished'
+  const [score, setScore] = useState(0);
+  const [balanceChange, setBalanceChange] = useState(0);
+  const [isBettingMode, setIsBettingMode] = useState(false);
+  
+  // Legacy mode state (for backward compatibility)
+  const [gameItems, setGameItems] = useState([]);
+  const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const [scores, setScores] = useState([]);
   const [totalScore, setTotalScore] = useState(0);
 
-  // Initialize game with 10 random items
+  // Initialize based on props
   useEffect(() => {
-    if (items && items.length > 0) {
+    if (gameData) {
+      // New betting mode
+      setIsBettingMode(true);
+      setCurrentItem(gameData.item);
+    } else if (items && Array.isArray(items) && items.length > 0) {
+      // Legacy mode with multiple items
+      setIsBettingMode(false);
       const shuffled = [...items].sort(() => 0.5 - Math.random());
       const selected = shuffled.slice(0, Math.min(10, items.length));
       setGameItems(selected);
+      setCurrentItem(selected[0]); // Set initial item for legacy mode
     }
-  }, [items]);
+  }, [items, gameData]);
 
-  // Calculate score based on how close the guess is
-  const calculateScore = (guess, actualPrice) => {
+  // Calculate score and payout based on how close the guess is
+  const calculateScore = (guess, actualPrice, betAmount = 0) => {
     const difference = Math.abs(guess - actualPrice);
     const percentageOff = (difference / actualPrice) * 100;
 
-    if (percentageOff <= 5) return 100; // Perfect - within 5%
-    if (percentageOff <= 10) return 90; // Excellent - within 10%
-    if (percentageOff <= 15) return 80; // Great - within 15%
-    if (percentageOff <= 25) return 70; // Good - within 25%
-    if (percentageOff <= 35) return 60; // Okay - within 35%
-    if (percentageOff <= 50) return 40; // Fair - within 50%
-    if (percentageOff <= 75) return 20; // Poor - within 75%
-    return 10; // Very poor - over 75% off
+    let score, multiplier;
+    if (percentageOff <= 5) {
+      score = 100;
+      multiplier = 10; // 10x payout for perfect guess
+    } else if (percentageOff <= 10) {
+      score = 90;
+      multiplier = 5; // 5x payout
+    } else if (percentageOff <= 15) {
+      score = 80;
+      multiplier = 3; // 3x payout
+    } else if (percentageOff <= 25) {
+      score = 70;
+      multiplier = 2; // 2x payout
+    } else if (percentageOff <= 35) {
+      score = 60;
+      multiplier = 1.5; // 1.5x payout
+    } else if (percentageOff <= 50) {
+      score = 40;
+      multiplier = 1; // Break even
+    } else if (percentageOff <= 75) {
+      score = 20;
+      multiplier = 0.5; // Lose half
+    } else {
+      score = 10;
+      multiplier = 0; // Lose everything
+    }
+
+    const payout = Math.round(betAmount * multiplier);
+    const balanceChange = payout - betAmount;
+
+    return { score, multiplier, payout, balanceChange };
   };
 
   const getScoreColor = (score) => {
@@ -56,31 +93,52 @@ const PriceGuessingGame = ({ items, onBackToScraper }) => {
 
   const handleGuessSubmit = () => {
     if (!userGuess || isNaN(userGuess) || userGuess <= 0) return;
+    if (!currentItem) return;
 
-    const currentItem = gameItems[currentItemIndex];
     const guess = parseInt(userGuess);
-    const score = calculateScore(guess, currentItem.price);
+    const betAmount = gameData?.betAmount || 0;
+    const result = calculateScore(guess, currentItem.price, betAmount);
 
-    const newScore = {
-      itemName: currentItem.name,
-      guess: guess,
-      actual: currentItem.price,
-      score: score,
-      difference: Math.abs(guess - currentItem.price),
-    };
+    setScore(result.score);
+    setBalanceChange(result.balanceChange);
 
-    setScores([...scores, newScore]);
-    setTotalScore(totalScore + score);
+    // For legacy mode, also update the scores array
+    if (!isBettingMode) {
+      const newScore = {
+        itemName: currentItem.name,
+        guess: guess,
+        actual: currentItem.price,
+        score: result.score,
+        difference: Math.abs(guess - currentItem.price),
+      };
+      setScores([...scores, newScore]);
+      setTotalScore(totalScore + result.score);
+    }
+
     setGameState("revealed");
   };
 
   const handleNextItem = () => {
-    setUserGuess("");
-    if (currentItemIndex < gameItems.length - 1) {
-      setCurrentItemIndex(currentItemIndex + 1);
-      setGameState("playing");
+    if (isBettingMode) {
+      // Single item betting mode - return to home
+      if (gameData?.onGameEnd) {
+        gameData.onGameEnd({
+          score,
+          balanceChange,
+          item: currentItem,
+          guess: parseInt(userGuess)
+        });
+      }
     } else {
-      setGameState("finished");
+      // Legacy mode
+      setUserGuess("");
+      if (currentItemIndex < gameItems.length - 1) {
+        setCurrentItemIndex(currentItemIndex + 1);
+        setCurrentItem(gameItems[currentItemIndex + 1]); // Update currentItem for legacy mode
+        setGameState("playing");
+      } else {
+        setGameState("finished");
+      }
     }
   };
 
@@ -96,7 +154,7 @@ const PriceGuessingGame = ({ items, onBackToScraper }) => {
     setGameItems(selected);
   };
 
-  if (!gameItems.length) {
+  if (!currentItem && !isBettingMode && (!items || !Array.isArray(items) || items.length === 0)) {
     return (
       <div
         style={{
@@ -132,8 +190,30 @@ const PriceGuessingGame = ({ items, onBackToScraper }) => {
     );
   }
 
-  const currentItem = gameItems[currentItemIndex];
-  const currentScore = scores.length > 0 ? scores[scores.length - 1] : null;
+  if (!currentItem) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          backgroundColor: "#0f0f23",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "system-ui, -apple-system, sans-serif",
+        }}
+      >
+        <div style={{ textAlign: "center", color: "white" }}>
+          <p style={{ fontSize: "18px", color: "#9ca3af" }}>
+            Loading item...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Remove this line since currentItem is now from state
+  // const currentItem = gameItems[currentItemIndex];
+  // const currentScore = scores.length > 0 ? scores[scores.length - 1] : null; // Unused in betting mode
 
   // Game finished screen
   if (gameState === "finished") {
@@ -406,16 +486,18 @@ const PriceGuessingGame = ({ items, onBackToScraper }) => {
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#f9fafb",
+        backgroundColor: isBettingMode ? "#0f0f23" : "#f9fafb",
         fontFamily: "system-ui, -apple-system, sans-serif",
+        color: isBettingMode ? "white" : "black",
       }}
     >
       {/* Header */}
       <div
         style={{
-          backgroundColor: "white",
-          borderBottom: "1px solid #e5e7eb",
+          backgroundColor: isBettingMode ? "rgba(0, 0, 0, 0.3)" : "white",
+          borderBottom: isBettingMode ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid #e5e7eb",
           padding: "16px 32px",
+          backdropFilter: isBettingMode ? "blur(10px)" : "none",
         }}
       >
         <div
@@ -428,7 +510,7 @@ const PriceGuessingGame = ({ items, onBackToScraper }) => {
           }}
         >
           <button
-            onClick={onBackToScraper}
+            onClick={isBettingMode ? () => gameData?.onGameEnd?.({ score: 0, balanceChange: -gameData.betAmount }) : onBackToScraper}
             style={{
               display: "flex",
               alignItems: "center",
@@ -437,60 +519,92 @@ const PriceGuessingGame = ({ items, onBackToScraper }) => {
               border: "none",
               cursor: "pointer",
               fontSize: "16px",
-              color: "#6b7280",
+              color: isBettingMode ? "#9ca3af" : "#6b7280",
             }}
           >
             <ArrowLeft size={20} />
-            Back to Scraper
+            {isBettingMode ? "Quit Game" : "Back to Scraper"}
           </button>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "24px",
-            }}
-          >
-            <div style={{ textAlign: "center" }}>
-              <div
-                style={{
-                  fontSize: "24px",
-                  fontWeight: "bold",
-                  color: "black",
-                }}
-              >
-                {currentItemIndex + 1}/{gameItems.length}
-              </div>
-              <div
-                style={{
-                  fontSize: "14px",
-                  color: "#6b7280",
-                }}
-              >
-                Progress
+          {isBettingMode && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "24px",
+              }}
+            >
+              <div style={{ textAlign: "center" }}>
+                <div
+                  style={{
+                    fontSize: "24px",
+                    fontWeight: "bold",
+                    color: "#3b82f6",
+                  }}
+                >
+                  ${gameData?.betAmount || 0}
+                </div>
+                <div
+                  style={{
+                    fontSize: "14px",
+                    color: "#9ca3af",
+                  }}
+                >
+                  Your Bet
+                </div>
               </div>
             </div>
+          )}
 
-            <div style={{ textAlign: "center" }}>
-              <div
-                style={{
-                  fontSize: "24px",
-                  fontWeight: "bold",
-                  color: "#10b981",
-                }}
-              >
-                {scores.length > 0 ? Math.round(totalScore / scores.length) : 0}
+          {!isBettingMode && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "24px",
+              }}
+            >
+              <div style={{ textAlign: "center" }}>
+                <div
+                  style={{
+                    fontSize: "24px",
+                    fontWeight: "bold",
+                    color: "black",
+                  }}
+                >
+                  {currentItemIndex + 1}/{gameItems.length}
+                </div>
+                <div
+                  style={{
+                    fontSize: "14px",
+                    color: "#6b7280",
+                  }}
+                >
+                  Progress
+                </div>
               </div>
-              <div
-                style={{
-                  fontSize: "14px",
-                  color: "#6b7280",
-                }}
-              >
-                Avg Score
+
+              <div style={{ textAlign: "center" }}>
+                <div
+                  style={{
+                    fontSize: "24px",
+                    fontWeight: "bold",
+                    color: "#10b981",
+                  }}
+                >
+                  {scores.length > 0 ? Math.round(totalScore / scores.length) : 0}
+                </div>
+                <div
+                  style={{
+                    fontSize: "14px",
+                    color: "#6b7280",
+                  }}
+                >
+                  Avg Score
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -581,11 +695,11 @@ const PriceGuessingGame = ({ items, onBackToScraper }) => {
               {currentItem.name}
             </h2>
 
-            {gameState === "revealed" && currentScore && (
+            {gameState === "revealed" && (
               <div
                 style={{
-                  backgroundColor: "#f8fafc",
-                  border: "2px solid " + getScoreColor(currentScore.score),
+                  backgroundColor: isBettingMode ? "rgba(255, 255, 255, 0.05)" : "#f8fafc",
+                  border: "2px solid " + getScoreColor(score),
                   borderRadius: "8px",
                   padding: "16px",
                   marginBottom: "20px",
@@ -603,31 +717,46 @@ const PriceGuessingGame = ({ items, onBackToScraper }) => {
                     style={{
                       fontSize: "18px",
                       fontWeight: "bold",
-                      color: getScoreColor(currentScore.score),
+                      color: getScoreColor(score),
                     }}
                   >
-                    {getScoreText(currentScore.score)}
+                    {getScoreText(score)}
                   </span>
                   <span
                     style={{
                       fontSize: "24px",
                       fontWeight: "bold",
-                      color: getScoreColor(currentScore.score),
+                      color: getScoreColor(score),
                     }}
                   >
-                    {currentScore.score}/100
+                    {score}/100
                   </span>
                 </div>
                 <div
                   style={{
                     fontSize: "16px",
-                    color: "#374151",
+                    color: isBettingMode ? "#e5e7eb" : "#374151",
                   }}
                 >
-                  Your guess: <strong>${currentScore.guess}</strong> | Actual
-                  price: <strong>${currentScore.actual}</strong> | Difference:{" "}
-                  <strong>${currentScore.difference}</strong>
+                  Your guess: <strong>${parseInt(userGuess)}</strong> | Actual
+                  price: <strong>${currentItem.price}</strong> | Difference:{" "}
+                  <strong>${Math.abs(parseInt(userGuess) - currentItem.price)}</strong>
                 </div>
+                {isBettingMode && (
+                  <div
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: "bold",
+                      color: balanceChange >= 0 ? "#10b981" : "#ef4444",
+                      marginTop: "8px",
+                    }}
+                  >
+                    {balanceChange >= 0 ? "+" : ""}${balanceChange} 
+                    <span style={{ fontSize: "14px", color: "#9ca3af" }}>
+                      ({balanceChange >= 0 ? "Profit" : "Loss"})
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -730,7 +859,7 @@ const PriceGuessingGame = ({ items, onBackToScraper }) => {
               <button
                 onClick={handleNextItem}
                 style={{
-                  backgroundColor: "black",
+                  backgroundColor: isBettingMode ? "#3b82f6" : "black",
                   color: "white",
                   padding: "12px 24px",
                   borderRadius: "8px",
@@ -741,59 +870,64 @@ const PriceGuessingGame = ({ items, onBackToScraper }) => {
                   width: "100%",
                 }}
               >
-                {currentItemIndex < gameItems.length - 1
-                  ? "Next Item"
-                  : "View Results"}
+                {isBettingMode 
+                  ? "Return to Home" 
+                  : currentItemIndex < gameItems.length - 1
+                    ? "Next Item"
+                    : "View Results"
+                }
               </button>
             )}
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div
-          style={{
-            backgroundColor: "white",
-            borderRadius: "8px",
-            padding: "16px",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-          }}
-        >
+        {/* Progress Bar - Only show in legacy mode */}
+        {!isBettingMode && (
           <div
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "8px",
-            }}
-          >
-            <span style={{ fontSize: "14px", color: "#6b7280" }}>Progress</span>
-            <span style={{ fontSize: "14px", color: "#6b7280" }}>
-              {currentItemIndex + 1} of {gameItems.length}
-            </span>
-          </div>
-          <div
-            style={{
-              width: "100%",
-              height: "8px",
-              backgroundColor: "#f3f4f6",
-              borderRadius: "4px",
-              overflow: "hidden",
+              backgroundColor: "white",
+              borderRadius: "8px",
+              padding: "16px",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
             }}
           >
             <div
               style={{
-                width: `${
-                  ((currentItemIndex + (gameState === "revealed" ? 1 : 0)) /
-                    gameItems.length) *
-                  100
-                }%`,
-                height: "100%",
-                backgroundColor: "black",
-                transition: "width 0.3s ease",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "8px",
               }}
-            />
+            >
+              <span style={{ fontSize: "14px", color: "#6b7280" }}>Progress</span>
+              <span style={{ fontSize: "14px", color: "#6b7280" }}>
+                {currentItemIndex + 1} of {gameItems.length}
+              </span>
+            </div>
+            <div
+              style={{
+                width: "100%",
+                height: "8px",
+                backgroundColor: "#f3f4f6",
+                borderRadius: "4px",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${
+                    ((currentItemIndex + (gameState === "revealed" ? 1 : 0)) /
+                      gameItems.length) *
+                    100
+                  }%`,
+                  height: "100%",
+                  backgroundColor: "black",
+                  transition: "width 0.3s ease",
+                }}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
